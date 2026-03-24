@@ -1,0 +1,102 @@
+#(1) General system descriptors
+SystemName       hbn     # Descriptive name of the system
+SystemLabel      hbn     # Short name for naming files
+%include STRUCT.fdf
+%include KPT.fdf
+%include BASIS.fdf
+#%include LDAU.fdf # for LDA+U calculation
+#include TS.fdf # for transiesta calculation
+
+#(4) DFT, Grid, SCF
+XC.functional         LDA           # LDA or GGA (default = LDA)
+XC.authors            CA            # CA (Ceperley-Aldr) = PZ
+                                    #    (Perdew-Zunger) - LDA - Default
+                                    # PW92 (Perdew-Wang-92) - LDA
+                                    # PBE (Perdew-Burke-Ernzerhof) - GGA
+MeshCutoff            300.000000    Ry      # Default: 50.0 Ry ~ 0.444 Bohr
+                                    #         100.0 Ry ~ 0.314 Bohr
+MaxSCFIterations      500           # Default: 50
+
+SCF.DM.Converge       T
+SCF.DM.Tolerance      1.d-4         # Default: 1.d-4
+SCF.H.Converge 	      T
+SCF.H.Tolerance       1.d-3 eV      # Default: 1.d-3
+
+SCF.Mixer.Method      Pulay
+SCF.Mixer.Weight      0.05          # Default: 0.25
+SCF.Mixer.History     10            # Default: 0
+
+DM.UseSaveDM          T             # because of the bug
+NeglNonOverlapInt     F             # Default: F
+
+
+#(5) Eigenvalue problem: order-N or diagonalization
+SolutionMethod        Diagon        # or Transiesta
+ElectronicTemperature 300.0 K       # Default: 300.0 K
+
+
+#(6) Molecular dynamics and relaxations
+MD.TypeOfRun          CG            # Type of dynamics:
+MD.VariableCell       F
+MD.NumCGsteps         0      # 0 for single-point / 100 for gopt
+MD.MaxCGDispl         0.2 Bohr       # Default: 0.2 Bohr
+MD.MaxForceTol        0.04 eV/Ang  # Default: 0.04 eV/Ang
+MD.MaxStressTol       1.0 GPa       # Default: 1.0 GPa
+
+#WriteWaveFunctions   .true.
+#COOP.Write  .true.
+#WFS.Write.For.Bands .true.
+
+##(8) MS-DFT options
+#SlabDipoleCorrection .true.
+#MSDFT  .True.
+#MSDFT.SD.Voltage  0.1 eV
+#MSDFT.ElecLeftStart  1
+#MSDFT.ElecLeftEnd  25
+#MSDFT.ElecRightStart 226
+#MSDFT.ElecRightEnd   273
+##MSCDFT.QuasiFermiLvl  .false.
+#TS.HS.Save .true.
+SlabDipoleCorrection .true.
+MSDFT .true.
+MSDFT.Qconst         .true.
+MSDFT.Qconst.Electron  0.0
+MSDFT.ElecLeftStart   1
+MSDFT.ElecLeftEnd     25
+MSDFT.ElecRightStart  26
+MSDFT.ElecRightEnd    75
+
+SlabDipoleCorrection .true.
+SpinPolarized  .true.
+
+%block GeometryConstraints
+  position from 1 to 25
+%endblock GeometryConstraint
+
+
+#(9) Output options
+#WriteCoorInitial      T      # SystemLabel.out
+#WriteKpoints          T      # SystemLabel.out
+#WriteEigenvalues      T      # SystemLabel.out [otherwise ~.EIG]
+#WriteKbands           T      # SystemLabel.out, band structure
+#WriteBands            T      # SystemLabel.bands, band structure
+#WriteMDXmol           T      # SystemLabel.ANI
+WriteCoorXmol         T  
+#WriteDM.NetCDF        T      # for Eigenchannel analysis later...
+#WriteDMHS.NetCDF      T      # for Eigenchannel analysis later...
+AllocReportLevel      0      # SystemLabel.alloc, Default: 0
+
+#(10) Options for saving/reading information
+#SpinOrbit	      T
+#Spin.OrbitStrength    1.0
+#SpinPolarized   yes
+#SaveHS                T      # SystemLabel.HS
+SaveRho               T      # SystemLabel.RHO
+SaveDeltaRho          T      # SystemLabel.DRHO
+SaveElectrostaticPotential T # SystemLabel.VH
+SaveTotalPotential    T      # SystemLabel.VT
+#WriteMullikenPop        1
+
+
+
+

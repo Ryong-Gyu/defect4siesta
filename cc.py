@@ -4,9 +4,7 @@ import os
 
 import numpy as np
 from scipy.optimize import fminbound, fsolve
-
 from NanoCore import s2, Vector
-
 from plotting import save_ccdiagram_plot
 
 

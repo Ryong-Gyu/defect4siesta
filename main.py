@@ -15,7 +15,7 @@ from scipy.special import factorial
 
 from NanoCore import s2
 
-from ccdiagram_workflow import (
+from cc import (
     configurational_coordinate,
     generate_struct,
     generate_struct_neb,
@@ -199,7 +199,7 @@ def build_parser():
     parser.add_argument(
         "--mode",
         required=True,
-        choices=["generate", "generate-neb", "cc"],
+        choices=["generate", "generate-neb", "qsub", "cc"],
         help="Workflow mode",
     )
     parser.add_argument("--run-nmp", action="store_true", help="Run NMP capture-time calculation after cc mode")
@@ -224,10 +224,10 @@ def main():
     if args.mode == "generate":
         generate_struct(diagram)
         generate_system(diagram)
-        qsub_system(diagram)
     elif args.mode == "generate-neb":
         generate_struct_neb(diagram)
         generate_system(diagram)
+    elif args.mode == "qsub":
         qsub_system(diagram)
     elif args.mode == "cc":
         configurational_coordinate(diagram)

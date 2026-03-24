@@ -1,0 +1,13 @@
+#(1) Basis definition
+
+PAO.BasisType     split        # split, splitgauss, nodes, nonodes
+PAO.BasisSize     DZP          # SZ or MINIMAL, DZ, SZP, DZP or STANDARD
+PAO.EnergyShift   20 meV      # default: 0.02 Ry
+PAO.SplitNorm     0.15         # default: 0.15
+
+%block PAO.BasisSizes
+Au SZ
+N DZP
+B DZP
+C DZP
+%endblock PAO.BasisSizes

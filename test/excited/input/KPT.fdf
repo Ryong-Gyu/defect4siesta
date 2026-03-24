@@ -1,0 +1,21 @@
+%block kgrid_Monkhorst_Pack
+   2   0   0   0.0
+   0   2   0   0.0
+   0   0   1   0.0
+%endblock kgrid_Monkhorst_Pack
+# Kpoint(Z-dir) : 96 per zgnr 1unit
+# Kpoint(aGNR) : 24      per 1unit
+# Kpoint(zGNR) : 96      per 1unit
+# Kpoint(Grp)  : 64(0.5) per 1unit
+
+
+#%block PDOS.kgrid_Monkhorst_Pack
+#   30   0   0  0
+#   0   30   0  0
+#   0   0   1  0
+#%endblock PDOS.kgrid_Monkhorst_Pack
+#
+#%block ProjectedDensityOfStates
+#   -15.0  5.00  0.05  1000 eV
+#%endblock ProjectedDensityOfStates
+## energies of the range, the peak width, the number of points 
