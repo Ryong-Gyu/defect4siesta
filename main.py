@@ -1,3 +1,12 @@
+"""Entry point for the CC-diagram and optional NMP workflow.
+
+Single-run flow:
+1) Generate interpolated structures (`--mode generate` or `--mode generate-neb`)
+2) Create/submit calculation folders (`generate_system`, `qsub_system`)
+3) Fit CC curves and export plots/data (`--mode cc`)
+4) Optionally compute NMP capture-time curve (`--run-nmp`)
+"""
+
 import argparse
 
 import numpy as np
@@ -6,7 +15,6 @@ from scipy.special import factorial
 
 from NanoCore import s2
 
-from NMP_v1 import compute_capture_time_curve, save_capture_time_curve
 from ccdiagram_workflow import (
     configurational_coordinate,
     generate_struct,
@@ -14,16 +22,36 @@ from ccdiagram_workflow import (
     generate_system,
     qsub_system,
 )
+from nmp import compute_capture_time_curve, save_capture_time_curve
+from unit import AMU2EMASS, BOHR2ANG, DEFAULT_SMEARING_EV, HARTREE2EV
 
 
 class ccdiagram(object):
+    """Container for CC diagram inputs, constants, and derived properties.
+
+    Parameters
+    ----------
+    ground : str
+        Path to a ground-state SIESTA `.fdf` structure file.
+    excited : str
+        Path to an excited-state SIESTA `.fdf` structure file.
+
+    Notes
+    -----
+    Stores conversion constants used during CC fitting:
+    - `bohr2ang` (bohr -> Å)
+    - `hartree2eV` (Hartree -> eV)
+    - `amu2emass` (amu -> electron-mass ratio)
+    - `smearing` (Gaussian width in eV)
+    """
+
     def __init__(self, ground, excited):
         self.tol = 1e-5
-        self.bohr2ang = 0.52918
-        self.hartree2eV = 27.2114
-        self.amu2emass = 1822.89
+        self.bohr2ang = BOHR2ANG
+        self.hartree2eV = HARTREE2EV
+        self.amu2emass = AMU2EMASS
         self.kb = 8.617 * 10 ** (-5)
-        self.smearing = 0.050
+        self.smearing = DEFAULT_SMEARING_EV
         self.e = 2.71828
         self.gap = 1.516429
         self.npt = 5
@@ -47,6 +75,12 @@ class ccdiagram(object):
         self.init_info()
 
     def init_info(self):
+        """Print initial geometric distortion diagnostics.
+
+        Side Effects
+        ------------
+        Writes information to stdout.
+        """
         dr, dr2, dR = self.deltaR(self.ground_position, self.excited_position)
         dQ = self.deltaQ(dr2, self.ground_mass)
         print("Calculation configuration coordinate diagram! \n")
@@ -54,10 +88,28 @@ class ccdiagram(object):
         print("Total mass weight distortion:    %7.4f" % dQ)
 
     def Polynomial2(self, parameters, x):
+        """Evaluate a 2nd-order polynomial A*x^2 + B*x + C."""
         A, B, C = parameters
         return A * x ** 2 + B * x + C
 
     def deltaR(self, pos1, pos2):
+        """Compute Cartesian displacement metrics between two structures.
+
+        Parameters
+        ----------
+        pos1, pos2 : np.ndarray
+            Atomic coordinates in Å with shape (N, 3).
+
+        Returns
+        -------
+        tuple[np.ndarray, np.ndarray, float]
+            `(dr, dr2, dR)` where `dr` is per-atom displacement vector in Å,
+            `dr2` is squared norm per atom in Å^2, and `dR` is total distortion in Å.
+
+        Side Effects
+        ------------
+        Prints per-atom displacements and totals to stdout.
+        """
         dr = pos2 - pos1
         dr2 = np.array([sum(r ** 2) for r in dr], dtype=float)
         print(sum(dr ** 2))
@@ -70,19 +122,52 @@ class ccdiagram(object):
         return dr, dr2, dR
 
     def deltaCell(self, vector1, vector2):
+        """Return cell-vector difference in Å."""
         return vector2 - vector1
 
     def deltaQ(self, dr2, mass):
+        """Compute mass-weighted distortion amplitude.
+
+        Parameters
+        ----------
+        dr2 : np.ndarray
+            Per-atom squared displacement in Å^2.
+        mass : np.ndarray
+            Per-atom mass in amu.
+
+        Returns
+        -------
+        float
+            Mass-weighted distortion `dQ` in amu^1/2·Å.
+        """
         dq2 = [m * d for m, d in zip(dr2, mass)]
         return np.sqrt(sum(dq2))
 
     def modalM(self, dQ, dR):
+        """Compute modal mass in amu from `dQ` (amu^1/2·Å) and `dR` (Å)."""
         return (dQ / dR) ** 2
 
     def delta(self, x):
+        """Gaussian broadening kernel using `self.smearing` in eV."""
         return np.exp(-(x / self.smearing) ** 2) / (self.smearing * np.sqrt(pi))
 
     def full_width_half_maxium(self, T, hwg, hwe, Sg, Se):
+        """Estimate FWHM of the phonon-broadened optical line.
+
+        Parameters
+        ----------
+        T : float
+            Temperature in K.
+        hwg, hwe : float
+            Effective phonon energies in meV (overridden by fitted values).
+        Sg, Se : float
+            Huang-Rhys factors (overridden by fitted values).
+
+        Returns
+        -------
+        float
+            FWHM estimate in eV.
+        """
         hwg = self._hwg / 1000
         hwe = self._hwe / 1000
         Sg = self._Sg
@@ -102,10 +187,12 @@ class ccdiagram(object):
         return WT
 
     def dipole_transition(self, n, S):
+        """Return Franck-Condon transition weight for vibrational index `n`."""
         return self.e ** (-S) * S ** n / factorial(n, exact=False)
 
 
 def build_parser():
+    """Build CLI parser for CC workflow and optional NMP post-processing."""
     parser = argparse.ArgumentParser(description="CC diagram workflow runner")
     parser.add_argument("ground", help="Ground-state fdf file")
     parser.add_argument("excited", help="Excited-state fdf file")
@@ -124,6 +211,13 @@ def build_parser():
 
 
 def main():
+    """Execute the selected CC workflow mode.
+
+    Side Effects
+    ------------
+    Depending on mode, creates directories/files, may submit jobs via `sbatch`,
+    and writes CC/NMP output artifacts.
+    """
     args = build_parser().parse_args()
     diagram = ccdiagram(args.ground, args.excited)
 

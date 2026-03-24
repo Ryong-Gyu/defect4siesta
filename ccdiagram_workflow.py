@@ -11,6 +11,13 @@ from plotting import save_ccdiagram_plot
 
 
 def _write_info(diagram):
+    """Print and export fitted CC parameters.
+
+    Side Effects
+    ------------
+    Writes `Effective_parameters.dat`, `CCdiagram.dat`, `Ground.dat`,
+    `Excited.dat`, and `Conduction.dat` in the current directory.
+    """
     print("Total distortion               dR:  %7.4f [ang]" % diagram._dR)
     print("Total mass weight distortion   dQ:  %7.4f [amu^1/2*ang]" % diagram._dQ)
     print("Modal mass                      M:  %7.4f [amu]" % diagram._M)
@@ -19,12 +26,12 @@ def _write_info(diagram):
     print("Zero phonon line             Ezpl:  %7.4f [eV]" % diagram._ZPL)
     print("Activation energy            Eact:  %7.4f [eV]" % diagram._Eact)
     print("Activation energy (conduction)   :  %7.4f [eV]" % diagram._dE)
-    print("Absortion energy             Eabs:  %7.4f [eV]" % diagram._Eabs)
+    print("Absorption energy             Eabs:  %7.4f [eV]" % diagram._Eabs)
     print("Emission energy             Eems:  %7.4f [eV]" % diagram._Eems)
     print("Huang-Rhys factor (g)           Sg:  %7.4f" % diagram._Sg)
     print("Huang-Rhys factor (e)           Se:  %7.4f" % diagram._Se)
-    print("Franck-Cordon shift (g)           dfc_g:  %7.4f" % diagram._dfc_g)
-    print("Franck-Cordon shift (e)           dfc_e:  %7.4f" % diagram._dfc_e)
+    print("Franck-Condon shift (g)           dfc_g:  %7.4f" % diagram._dfc_g)
+    print("Franck-Condon shift (e)           dfc_e:  %7.4f" % diagram._dfc_e)
 
     with open("Effective_parameters.dat", "w") as file:
         file.write("Total distortion               dR:  %7.4f [ang]\n" % diagram._dR)
@@ -35,12 +42,12 @@ def _write_info(diagram):
         file.write("Zero phonon line             Ezpl:  %7.4f [eV]\n" % diagram._ZPL)
         file.write("Activation energy            Eact:  %7.4f [eV]\n" % diagram._Eact)
         file.write("Activation energy (conduction)   :  %7.4f [eV]\n" % diagram._dE)
-        file.write("Absortion energy             Eabs:  %7.4f [eV]\n" % diagram._Eabs)
+        file.write("Absorption energy             Eabs:  %7.4f [eV]\n" % diagram._Eabs)
         file.write("Emission energy             Eems:  %7.4f [eV]\n" % diagram._Eems)
         file.write("Huang-Rhys factor (g)           Sg:  %7.4f\n" % diagram._Sg)
         file.write("Huang-Rhys factor (e)           Se:  %7.4f\n" % diagram._Se)
-        file.write("Franck-Cordon shift (g)           dfc_g:  %7.4f\n" % diagram._dfc_g)
-        file.write("Franck-Cordon shift (e)           dfc_e:  %7.4f\n" % diagram._dfc_e)
+        file.write("Franck-Condon shift (g)           dfc_g:  %7.4f\n" % diagram._dfc_g)
+        file.write("Franck-Condon shift (e)           dfc_e:  %7.4f\n" % diagram._dfc_e)
 
     with open("CCdiagram.dat", "w") as file2:
         n_q = len(diagram._plotQ)
@@ -64,6 +71,12 @@ def _write_info(diagram):
 
 
 def generate_struct(diagram):
+    """Generate linearly interpolated structures at fixed cell.
+
+    Side Effects
+    ------------
+    Writes `linear*` structure files in the current directory.
+    """
     init_struct = diagram.ground_struct
     dr, _, _ = diagram.deltaR(diagram.ground_position, diagram.excited_position)
     ddr = dr / diagram.npt
@@ -79,6 +92,12 @@ def generate_struct(diagram):
 
 
 def generate_struct_neb(diagram):
+    """Generate linearly interpolated structures including cell interpolation.
+
+    Side Effects
+    ------------
+    Writes `linear*` structure files in the current directory.
+    """
     init_struct = diagram.ground_struct
 
     dr, _, _ = diagram.deltaR(diagram.ground_position, diagram.excited_position)
@@ -99,6 +118,13 @@ def generate_struct_neb(diagram):
 
 
 def generate_system(diagram):
+    """Create calculation directories and copy inputs for each interpolated structure.
+
+    Side Effects
+    ------------
+    Creates `*_calc` directories and many subdirectories/files. Changes the
+    working directory temporarily during setup.
+    """
     os.system("mkdir ground_calc")
     os.system("mkdir excited_calc")
     os.system("mkdir conduction_calc")
@@ -116,6 +142,12 @@ def generate_system(diagram):
 
 
 def qsub_system(diagram):
+    """Submit each prepared structure calculation via `sbatch`.
+
+    Side Effects
+    ------------
+    Changes directories while traversing structure folders and launches jobs.
+    """
     struct_files = glob.glob("linear*")
 
     for state in ["ground", "excited", "conduction"]:
@@ -129,6 +161,17 @@ def qsub_system(diagram):
 
 
 def get_total_energy(diagram):
+    """Collect converged total energies for each charge/state branch.
+
+    Returns
+    -------
+    tuple[np.ndarray, ...]
+        Branch Q grids and corresponding energies in eV.
+
+    Side Effects
+    ------------
+    Traverses calculation directories via `os.chdir` and prints progress.
+    """
     struct_files = sorted(glob.glob("linear*"))
 
     ground_energy, excited_energy, conduction_energy = [], [], []
@@ -151,6 +194,8 @@ def get_total_energy(diagram):
                     print("not converged")
                 else:
                     qtmp = float(istruct.split("linear")[-1]) / diagram.npt
+                    # Fit windows are branch-specific to isolate locally harmonic
+                    # regions around each minimum/crossing point.
                     if state == "ground" and (-1 - diagram.tol <= qtmp <= 1 + diagram.tol):
                         ground_energy.append(e)
                         q1.append(qtmp)
@@ -169,8 +214,8 @@ def get_total_energy(diagram):
     q2 = np.array(q2, dtype=float)
     q3 = np.array(q3, dtype=float)
 
-    print("Number of calcuated data (ground): %d" % len(q1))
-    print("Number of calcuated data (exicid): %d" % len(q2))
+    print("Number of calculated data (ground): %d" % len(q1))
+    print("Number of calculated data (excited): %d" % len(q2))
 
     return (
         q1,
@@ -183,6 +228,17 @@ def get_total_energy(diagram):
 
 
 def configurational_coordinate(diagram):
+    """Fit CC parabolas and derive effective parameters.
+
+    Returns
+    -------
+    None
+        Results are stored on `diagram` fields (`_dQ`, `_Eact`, `_hwg`, ...).
+
+    Side Effects
+    ------------
+    Calls plotting and writes multiple `.dat` output files in cwd.
+    """
     q1, q2, q3, ground_energy, excited_energy, conduction_energy = get_total_energy(diagram)
 
     parameter1 = np.polyfit(q1, ground_energy, 2)
@@ -213,7 +269,7 @@ def configurational_coordinate(diagram):
 
     dhw = effective_phonon_energy_e - effective_phonon_energy_g
     activation_energy = excited_function(q_cross) - excited_function(qe)
-    absortion_energy = excited_function(qg) - ground_function(qg)
+    absorption_energy = excited_function(qg) - ground_function(qg)
     emission_energy = excited_function(qe) - ground_function(qe)
     zero_phonon_line = excited_function(qe) - ground_function(qg) + dhw
     binding_energy = conduction_function(qc) - excited_function(qe)
@@ -255,7 +311,7 @@ def configurational_coordinate(diagram):
     diagram._dEg = dEg
     diagram._dEe = dEe
     diagram._ZPL = zero_phonon_line
-    diagram._Eabs = absortion_energy
+    diagram._Eabs = absorption_energy
     diagram._Eems = emission_energy
     diagram._Eact = activation_energy
     diagram._dfc_g = dfc_g
