@@ -6,6 +6,7 @@ from scipy.special import factorial
 
 from NanoCore import s2
 
+from NMP_v1 import compute_capture_time_curve, save_capture_time_curve
 from ccdiagram_workflow import (
     configurational_coordinate,
     generate_struct,
@@ -114,6 +115,11 @@ def build_parser():
         choices=["generate", "generate-neb", "cc"],
         help="Workflow mode",
     )
+    parser.add_argument("--run-nmp", action="store_true", help="Run NMP capture-time calculation after cc mode")
+    parser.add_argument("--nmp-output", default="nmp.txt", help="Output file path for NMP capture-time results")
+    parser.add_argument("--nmp-tmin", type=float, default=5.0, help="Minimum temperature for NMP curve")
+    parser.add_argument("--nmp-tmax", type=float, default=2000.0, help="Maximum temperature for NMP curve")
+    parser.add_argument("--nmp-tnum", type=int, default=400, help="Number of temperature points for NMP curve")
     return parser
 
 
@@ -131,6 +137,18 @@ def main():
         qsub_system(diagram)
     elif args.mode == "cc":
         configurational_coordinate(diagram)
+        if args.run_nmp:
+            temperatures = np.linspace(args.nmp_tmin, args.nmp_tmax, args.nmp_tnum)
+            wi = diagram._hwg / 1000.0
+            wf = diagram._hwe / 1000.0
+            T_array, capture_time_array = compute_capture_time_curve(
+                dQ=diagram._dQ,
+                dE=diagram._dE,
+                wi=wi,
+                wf=wf,
+                temperatures=temperatures,
+            )
+            save_capture_time_curve(args.nmp_output, T_array, capture_time_array)
 
 
 if __name__ == "__main__":
