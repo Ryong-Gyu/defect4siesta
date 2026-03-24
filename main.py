@@ -27,7 +27,7 @@ npt = 5
 
 
 
-class luminescence(object):
+class ccdiagram(object):
 
     def __init__(self):
 
@@ -686,7 +686,7 @@ class luminescence(object):
 
 if __name__ == '__main__':
 
-    test = luminescence()
+    test = ccdiagram()
 
     mode = input("(1)generate, qsub (2)generate, qsub(neb) (3)CC\n")
     mode = int(mode)
